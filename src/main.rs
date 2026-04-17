@@ -280,4 +280,54 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
     }
+
+    #[tokio::test]
+    async fn test_api_usage() {
+        let app = test_app();
+
+        let request = Request::builder().uri("/api/usage").body(Body::empty()).unwrap();
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_api_uptime() {
+        let app = test_app();
+
+        let request = Request::builder().uri("/api/uptime").body(Body::empty()).unwrap();
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_api_setup() {
+        let app = test_app();
+
+        let setup_json = r#"{
+            "serverName": "TestServer",
+            "theme": "dark",
+            "port": "4000",
+            "enableFog": "true",
+            "backgroundColor": "default"
+        }"#;
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/setup")
+                    .header("content-type", "application/json")
+                    .body(Body::from(setup_json))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Clean up
+        let _ = std::fs::remove_file("test_integration.ini");
+    }
 }
