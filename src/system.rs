@@ -94,7 +94,7 @@ impl SystemMonitor {
         #[cfg(target_os = "macos")]
         {
             if let Ok(output) = std::process::Command::new("system_profiler")
-                .args(&["SPStorageDataType"])
+                .args(["SPStorageDataType"])
                 .output()
             {
                 let stdout = String::from_utf8_lossy(&output.stdout);
