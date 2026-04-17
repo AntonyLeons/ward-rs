@@ -32,7 +32,7 @@ RUN useradd -m -s /bin/bash ward_user && chown -R ward_user /app
 USER ward_user
 
 # Copy the compiled binary
-COPY --from=builder /usr/src/ward-rs/target/release/ward ./ward
+COPY --from=builder /usr/src/ward-rs/target/release/ward-rs ./ward-rs
 
 # Create empty setup.ini or ensure it can be created
 RUN touch setup.ini && chmod 666 setup.ini
@@ -41,4 +41,4 @@ RUN touch setup.ini && chmod 666 setup.ini
 EXPOSE 4000
 
 # Run the binary
-ENTRYPOINT ["./ward"]
+ENTRYPOINT ["./ward-rs"]
