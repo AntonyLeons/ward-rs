@@ -2,6 +2,11 @@ name: docker-image
 on: 
   release:
     types: [published]
+
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
