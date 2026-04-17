@@ -1,5 +1,5 @@
 <h3 align = "center">
-<img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/AntonyLeons/ward/docker-image.yml">
+<img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/AntonyLeons/ward-rs/rust.yml">
 <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/antonyleons/ward?style=plastic">
 </h3>
 <h3 align = "center">
@@ -17,21 +17,21 @@
 * `docker run --restart unless-stopped -it -d --name ward  -p 4000:4000 -e WARD_PORT=4000 -e WARD_THEME=dark --cap-add SYS_PTRACE antonyleons/ward`
 * Go to localhost:4000 in web browser
 
-Also see the example [docker-compose.yml](https://github.com/AntonyLeons/Ward/blob/main/docker-compose.yml) file in the root directory.
+Also see the example [docker-compose.yml](https://github.com/AntonyLeons/ward-rs/blob/main/docker-compose.yml) file in the root directory.
 
-## Java
+## Executable
 
-Download the latest release from [here](https://github.com/AntonyLeons/Ward/releases/latest)
+Download the latest release from [here](https://github.com/AntonyLeons/ward-rs/releases/latest)
 
 ```console
-java -jar ward.jar
+./ward
 ```
 
 ### About
 
 Ward is a simple and minimalistic server monitoring tool. Ward supports adaptive design system. Also, it supports dark theme.
 It shows only principal information and can be used, if you want to see nice looking dashboard instead looking on bunch of numbers and graphs.
-Ward works nice on all popular operating systems, because it uses [OSHI](https://github.com/oshi/oshi).
+Ward works nice on all popular operating systems, because it uses [sysinfo](https://github.com/GuillaumeGomez/sysinfo).
 
 **All features tested on:** `Windows` `Linux`
 
@@ -44,18 +44,18 @@ Ward works nice on all popular operating systems, because it uses [OSHI](https:/
 
 ### Installation
 
-    Create your own jar
+    Build from source
 
     • Clone the project
-    • Import project in your IDE as Maven project
-    • mvn clean package
+    • Run `cargo build --release`
+    • The executable will be located in `target/release/ward`
 
 <br>
 
-    Run jar file
+    Run executable
 
-    1. Create you own jar as described above
-    2. Execute jar on Windows or Linux with administrative rights
+    1. Build from source as described above, or download a pre-compiled binary
+    2. Execute `./ward` on Windows or Linux (may require administrative rights)
     3. Enter localhost:4000 and set up application
 
 <br>
