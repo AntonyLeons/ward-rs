@@ -121,7 +121,7 @@ function sendInfoRequest()
  */
 function sendUptimeRequest()
 {
-    infoXHR.onreadystatechange = function()
+    uptimeXHR.onreadystatechange = function()
     {
         if ((this.readyState === 4) && (this.status === 200))
         {
@@ -132,12 +132,12 @@ function sendUptimeRequest()
             minutes.innerHTML = response.minutes;
             seconds.innerHTML = response.seconds;
 
-            sendUsageRequest()
+            setTimeout(sendUsageRequest, 1000);
         }
     }
 
-    infoXHR.open("GET", "/api/uptime");
-    infoXHR.send();
+    uptimeXHR.open("GET", "/api/uptime");
+    uptimeXHR.send();
 }
 
 /**
