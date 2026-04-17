@@ -204,7 +204,12 @@ impl SystemMonitor {
             let name = disk.name().to_string_lossy().to_string();
 
             // Ignore virtual file systems to prevent double counting in Docker
-            if fs == "overlay" || fs == "tmpfs" || fs == "devtmpfs" || fs == "shm" || fs == "squashfs" {
+            if fs == "overlay"
+                || fs == "tmpfs"
+                || fs == "devtmpfs"
+                || fs == "shm"
+                || fs == "squashfs"
+            {
                 continue;
             }
 
@@ -284,7 +289,12 @@ impl SystemMonitor {
             let name = disk.name().to_string_lossy().to_string();
 
             // Ignore virtual file systems to prevent double counting in Docker
-            if fs == "overlay" || fs == "tmpfs" || fs == "devtmpfs" || fs == "shm" || fs == "squashfs" {
+            if fs == "overlay"
+                || fs == "tmpfs"
+                || fs == "devtmpfs"
+                || fs == "shm"
+                || fs == "squashfs"
+            {
                 continue;
             }
 
