@@ -9,10 +9,10 @@ use axum::{
     response::{Html, IntoResponse},
     routing::{get, post},
 };
+use rust_embed::RustEmbed;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::set_header::SetResponseHeaderLayer;
-use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -168,7 +168,11 @@ async fn static_handler(uri: axum::http::Uri) -> impl IntoResponse {
     match Assets::get(path) {
         Some(content) => {
             let mime = mime_guess::from_path(path).first_or_octet_stream();
-            ([(axum::http::header::CONTENT_TYPE, mime.as_ref())], content.data).into_response()
+            (
+                [(axum::http::header::CONTENT_TYPE, mime.as_ref())],
+                content.data,
+            )
+                .into_response()
         }
         None => axum::http::StatusCode::NOT_FOUND.into_response(),
     }
