@@ -13,5 +13,5 @@ services:
         cap_add:
             - SYS_PTRACE
         volumes:
-            - /run/udev:/run/udev:ro
+            - /:/host:ro
         image: antonyleons/ward-rs
