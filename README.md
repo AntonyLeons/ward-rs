@@ -14,7 +14,7 @@
 
 ## Docker
 
-* `docker run --restart unless-stopped -it -d --name ward  -p 4000:4000 -e WARD_PORT=4000 -e WARD_THEME=dark --cap-add SYS_PTRACE antonyleons/ward`
+* `docker run --restart unless-stopped -it -d --name ward-rs -p 4000:4000 -e WARD_PORT=4000 -e WARD_THEME=dark --cap-add SYS_PTRACE ward-rs`
 * Go to localhost:4000 in web browser
 
 Also see the example [docker-compose.yml](https://github.com/AntonyLeons/ward-rs/blob/main/docker-compose.yml) file in the root directory.
@@ -63,8 +63,8 @@ Ward works nice on all popular operating systems, because it uses [sysinfo](http
     Build for Docker
 
     1. Clone the project
-    2. docker build --tag ward
-    3. docker run --restart unless-stopped -it -d --name ward  -p 4000:4000 -e WARD_PORT=4000 -e WARD_THEME=dark --cap-add SYS_PTRACE ward
+    2. docker build --tag ward-rs .
+    3. docker run --restart unless-stopped -it -d --name ward -p 4000:4000 -e WARD_PORT=4000 -e WARD_THEME=dark --cap-add SYS_PTRACE ward-rs
     4. Go to localhost:4000 in web browser
 
 ### Config

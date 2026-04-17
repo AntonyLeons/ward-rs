@@ -1,6 +1,5 @@
 use crate::models::SetupDto;
 use ini::Ini;
-use std::path::Path;
 
 /// ConfigManager handles reading and writing the setup.ini file.
 pub struct ConfigManager {

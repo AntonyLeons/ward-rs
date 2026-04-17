@@ -21,6 +21,7 @@ impl SystemMonitor {
     pub fn new() -> Self {
         let mut sys = System::new_all();
         sys.refresh_all();
+        sys.refresh_cpu_usage();
         let disks = Disks::new_with_refreshed_list();
         Self {
             sys: Mutex::new(sys),
@@ -36,6 +37,7 @@ impl SystemMonitor {
             let mut sys = self.sys.lock().unwrap();
             let mut disks = self.disks.lock().unwrap();
             sys.refresh_all();
+            sys.refresh_cpu_usage();
             disks.refresh(true);
             *last_update = Instant::now();
         }
@@ -143,7 +145,11 @@ impl SystemMonitor {
             bit_depth: cpu_bit_depth.clone(),
         };
 
-        let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
+        let mut os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
+        if os_name == "Darwin" || os_name == "Mac OS" || os_name == "Mac OS X" {
+            os_name = "macOS".to_string();
+        }
+        
         let os_version = System::os_version().unwrap_or_default();
         let operating_system = format!("{os_name} {os_version}");
 
@@ -161,12 +167,11 @@ impl SystemMonitor {
         };
 
         let mut total_storage_bytes = 0;
-        let mut unique_disks = std::collections::HashSet::new();
+        let mut unique_totals = std::collections::HashSet::new();
 
         for disk in disks.list() {
-            let name = disk.name().to_string_lossy().to_string();
             let total = disk.total_space();
-            if unique_disks.insert((name, total)) {
+            if total > 0 && unique_totals.insert(total) {
                 total_storage_bytes += total;
             }
         }
@@ -207,50 +212,40 @@ impl SystemMonitor {
 
     /// Get current dynamic hardware usage (CPU, RAM, Storage).
     pub fn get_usage(&self) -> UsageDto {
-        let mut sys = self.sys.lock().unwrap();
-        let mut disks = self.disks.lock().unwrap();
-        let mut last_update = self.last_update.lock().unwrap();
-
-        // Refresh system to get latest metrics
-        sys.refresh_all();
-        disks.refresh(true);
-        *last_update = Instant::now();
-
-        // Wait 1 second and refresh CPU specifically for accurate delta and to throttle frontend updates
-        std::thread::sleep(std::time::Duration::from_millis(1000));
-        sys.refresh_cpu_usage();
+        self.refresh_if_needed();
+        let sys = self.sys.lock().unwrap();
+        let disks = self.disks.lock().unwrap();
 
         let cpu_usage: f32 = sys.global_cpu_usage();
         
         let total_ram = sys.total_memory();
         let used_ram = sys.used_memory();
         let ram_usage = if total_ram > 0 {
-            ((used_ram as f64 / total_ram as f64) * 100.0) as i32
+            ((used_ram as f64 / total_ram as f64) * 100.0).round() as i32
         } else {
             0
         };
 
         let mut total_storage = 0;
         let mut used_storage = 0;
-        let mut unique_disks = std::collections::HashSet::new();
+        let mut unique_totals = std::collections::HashSet::new();
 
         for disk in disks.list() {
-            let name = disk.name().to_string_lossy().to_string();
             let total = disk.total_space();
-            if unique_disks.insert((name, total)) {
+            if total > 0 && unique_totals.insert(total) {
                 total_storage += total;
                 used_storage += total - disk.available_space();
             }
         }
         
         let storage_usage = if total_storage > 0 {
-            ((used_storage as f64 / total_storage as f64) * 100.0) as i32
+            ((used_storage as f64 / total_storage as f64) * 100.0).round() as i32
         } else {
             0
         };
 
         UsageDto {
-            processor: cpu_usage as i32,
+            processor: cpu_usage.round() as i32,
             ram: ram_usage,
             storage: storage_usage,
         }
