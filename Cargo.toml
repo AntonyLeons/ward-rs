@@ -1,6 +1,6 @@
 [package]
-name = "ward"
-version = "0.0.5"
+name = "ward-rs"
+version = "0.0.6"
 edition = "2024"
 
 [dependencies]

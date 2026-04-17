@@ -1128,8 +1128,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "ward"
-version = "0.0.5"
+name = "ward-rs"
+version = "0.0.6"
 dependencies = [
  "askama",
  "axum",
