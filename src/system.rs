@@ -126,6 +126,38 @@ impl SystemMonitor {
         "Undefined".to_string()
     }
 
+    /// Try to determine the host OS, especially useful when running in Docker
+    fn get_os_info() -> String {
+        if let Ok(content) = std::fs::read_to_string("/host/etc/os-release") {
+            let mut name = String::new();
+            let mut version = String::new();
+            for line in content.lines() {
+                if line.starts_with("NAME=") {
+                    name = line
+                        .trim_start_matches("NAME=")
+                        .trim_matches('"')
+                        .to_string();
+                } else if line.starts_with("VERSION_ID=") {
+                    version = line
+                        .trim_start_matches("VERSION_ID=")
+                        .trim_matches('"')
+                        .to_string();
+                }
+            }
+            if !name.is_empty() {
+                return format!("{name} {version}").trim().to_string();
+            }
+        }
+
+        let mut os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
+        if os_name == "Darwin" || os_name == "Mac OS" || os_name == "Mac OS X" {
+            os_name = "macOS".to_string();
+        }
+
+        let os_version = System::os_version().unwrap_or_default();
+        format!("{os_name} {os_version}").trim().to_string()
+    }
+
     /// Get static hardware information.
     pub fn get_info(&self) -> InfoDto {
         self.refresh_if_needed();
@@ -171,13 +203,7 @@ impl SystemMonitor {
             bit_depth: cpu_bit_depth.clone(),
         };
 
-        let mut os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
-        if os_name == "Darwin" || os_name == "Mac OS" || os_name == "Mac OS X" {
-            os_name = "macOS".to_string();
-        }
-
-        let os_version = System::os_version().unwrap_or_default();
-        let operating_system = format!("{os_name} {os_version}");
+        let operating_system = Self::get_os_info();
 
         let total_ram_bytes = sys.total_memory();
         let total_ram_formatted = format!("{} RAM", Self::get_converted_capacity(total_ram_bytes));
@@ -222,6 +248,18 @@ impl SystemMonitor {
         let mut main_storage = Self::get_hardware_storage_model();
         if main_storage == "Undefined" {
             for disk in disks.list() {
+                let fs = disk.file_system().to_string_lossy().to_lowercase();
+                if fs == "overlay"
+                    || fs == "tmpfs"
+                    || fs == "devtmpfs"
+                    || fs == "shm"
+                    || fs == "squashfs"
+                {
+                    continue;
+                }
+                if disk.total_space() == 0 {
+                    continue;
+                }
                 let name = disk.name().to_string_lossy().to_string();
                 if !name.is_empty() {
                     main_storage = name;
@@ -237,11 +275,11 @@ impl SystemMonitor {
             "{} Total",
             Self::get_converted_capacity(total_storage_bytes)
         );
-        let disk_count = disks.list().len();
+        let disk_count = unique_disks.len();
         let disk_count_str = format!(
             "{} {}",
             disk_count,
-            if disk_count > 1 { "Disks" } else { "Disk" }
+            if disk_count == 1 { "Disk" } else { "Disks" }
         );
 
         // Sysinfo changed Windows swap behavior recently: it now returns ONLY the swap/paging file size
