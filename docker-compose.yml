@@ -12,4 +12,6 @@ services:
             - WARD_BACKGROUND=#3c3c3c # disable fog to use background
         cap_add:
             - SYS_PTRACE
-        image: antonyleons/ward
+        volumes:
+            - /run/udev:/run/udev:ro
+        image: antonyleons/ward-rs

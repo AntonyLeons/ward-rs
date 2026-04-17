@@ -197,11 +197,19 @@ impl SystemMonitor {
         };
 
         let mut total_storage_bytes = 0;
-        let mut unique_totals = std::collections::HashSet::new();
+        let mut unique_disks = std::collections::HashSet::new();
 
         for disk in disks.list() {
+            let fs = disk.file_system().to_string_lossy().to_lowercase();
+            let name = disk.name().to_string_lossy().to_string();
+
+            // Ignore virtual file systems to prevent double counting in Docker
+            if fs == "overlay" || fs == "tmpfs" || fs == "devtmpfs" || fs == "shm" || fs == "squashfs" {
+                continue;
+            }
+
             let total = disk.total_space();
-            if total > 0 && unique_totals.insert(total) {
+            if total > 0 && unique_disks.insert((name, total)) {
                 total_storage_bytes += total;
             }
         }
@@ -269,11 +277,19 @@ impl SystemMonitor {
 
         let mut total_storage = 0;
         let mut used_storage = 0;
-        let mut unique_totals = std::collections::HashSet::new();
+        let mut unique_disks = std::collections::HashSet::new();
 
         for disk in disks.list() {
+            let fs = disk.file_system().to_string_lossy().to_lowercase();
+            let name = disk.name().to_string_lossy().to_string();
+
+            // Ignore virtual file systems to prevent double counting in Docker
+            if fs == "overlay" || fs == "tmpfs" || fs == "devtmpfs" || fs == "shm" || fs == "squashfs" {
+                continue;
+            }
+
             let total = disk.total_space();
-            if total > 0 && unique_totals.insert(total) {
+            if total > 0 && unique_disks.insert((name, total)) {
                 total_storage += total;
                 used_storage += total - disk.available_space();
             }
