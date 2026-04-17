@@ -1,20 +1,22 @@
+pub mod config;
 pub mod models;
 pub mod system;
-pub mod config;
 
+use axum::http::{HeaderValue, header};
 use axum::{
+    Json, Router,
+    extract::State,
+    response::Html,
     routing::{get, post},
-    Router, Json, extract::State, response::Html,
 };
-use axum::http::{header, HeaderValue};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
-use crate::system::SystemMonitor;
 use crate::config::ConfigManager;
-use crate::models::{SetupDto, ResponseDto, UsageDto, InfoDto, UptimeDto};
+use crate::models::{InfoDto, ResponseDto, SetupDto, UptimeDto, UsageDto};
+use crate::system::SystemMonitor;
 
 struct AppState {
     sys_monitor: Arc<Mutex<SystemMonitor>>,
@@ -23,10 +25,7 @@ struct AppState {
     port_overridden: bool,
 }
 
-
 use clap::Parser;
-
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Ward dashboard rewrite in Rust", long_about = None)]
@@ -174,7 +173,7 @@ async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
 
     let config = state.config_manager.read_config().unwrap();
     let monitor = state.sys_monitor.lock().await;
-    
+
     let tmpl = IndexTemplate {
         theme: config.theme,
         enable_fog: config.enable_fog,
@@ -188,14 +187,26 @@ async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
     Html(tmpl.render().unwrap())
 }
 
-    #[allow(dead_code)]
+#[allow(dead_code)]
 async fn setup_page_handler(State(state): State<Arc<AppState>>) -> Html<String> {
     let config = state.config_manager.read_config();
     let tmpl = SetupTemplate {
-        theme: config.as_ref().map(|c| c.theme.clone()).unwrap_or_else(|| "light".to_string()),
-        enable_fog: config.as_ref().map(|c| c.enable_fog.clone()).unwrap_or_else(|| "true".to_string()),
-        background_color: config.as_ref().map(|c| c.background_color.clone()).unwrap_or_else(|| "default".to_string()),
-        server_name: config.as_ref().map(|c| c.server_name.clone()).unwrap_or_else(|| "Ward".to_string()),
+        theme: config
+            .as_ref()
+            .map(|c| c.theme.clone())
+            .unwrap_or_else(|| "light".to_string()),
+        enable_fog: config
+            .as_ref()
+            .map(|c| c.enable_fog.clone())
+            .unwrap_or_else(|| "true".to_string()),
+        background_color: config
+            .as_ref()
+            .map(|c| c.background_color.clone())
+            .unwrap_or_else(|| "default".to_string()),
+        server_name: config
+            .as_ref()
+            .map(|c| c.server_name.clone())
+            .unwrap_or_else(|| "Ward".to_string()),
         port: state.active_port.clone(),
         port_overridden: state.port_overridden,
     };
@@ -222,12 +233,18 @@ async fn setup_handler(
     Json(payload): Json<SetupDto>,
 ) -> Json<ResponseDto> {
     if state.config_manager.is_configured() {
-        return Json(ResponseDto { message: "Application already configured".to_string() });
+        return Json(ResponseDto {
+            message: "Application already configured".to_string(),
+        });
     }
 
     match state.config_manager.write_config(&payload) {
-        Ok(_) => Json(ResponseDto { message: "Settings saved correctly".to_string() }),
-        Err(e) => Json(ResponseDto { message: format!("Failed to save settings: {e}") }),
+        Ok(_) => Json(ResponseDto {
+            message: "Settings saved correctly".to_string(),
+        }),
+        Err(e) => Json(ResponseDto {
+            message: format!("Failed to save settings: {e}"),
+        }),
     }
 }
 
@@ -275,7 +292,10 @@ mod tests {
     async fn test_api_info() {
         let app = test_app();
 
-        let request = Request::builder().uri("/api/info").body(Body::empty()).unwrap();
+        let request = Request::builder()
+            .uri("/api/info")
+            .body(Body::empty())
+            .unwrap();
         let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -285,7 +305,10 @@ mod tests {
     async fn test_api_usage() {
         let app = test_app();
 
-        let request = Request::builder().uri("/api/usage").body(Body::empty()).unwrap();
+        let request = Request::builder()
+            .uri("/api/usage")
+            .body(Body::empty())
+            .unwrap();
         let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -295,7 +318,10 @@ mod tests {
     async fn test_api_uptime() {
         let app = test_app();
 
-        let request = Request::builder().uri("/api/uptime").body(Body::empty()).unwrap();
+        let request = Request::builder()
+            .uri("/api/uptime")
+            .body(Body::empty())
+            .unwrap();
         let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);

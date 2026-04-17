@@ -28,7 +28,10 @@ impl ConfigManager {
         let theme = section.get("theme").unwrap_or("light").to_string();
         let port = section.get("port").unwrap_or("4000").to_string();
         let enable_fog = section.get("enableFog").unwrap_or("true").to_string();
-        let background_color = section.get("backgroundColor").unwrap_or("default").to_string();
+        let background_color = section
+            .get("backgroundColor")
+            .unwrap_or("default")
+            .to_string();
 
         Some(SetupDto {
             server_name,
@@ -63,9 +66,9 @@ mod tests {
     fn test_config_manager() {
         let path = "test_setup.ini";
         let _ = fs::remove_file(path); // Ensure clean state
-        
+
         let config_manager = ConfigManager::new(path);
-        
+
         // Should not be configured initially
         assert!(!config_manager.is_configured());
         assert!(config_manager.read_config().is_none());

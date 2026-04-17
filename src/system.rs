@@ -1,7 +1,7 @@
 use crate::models::*;
-use sysinfo::{System, Disks};
 use std::sync::Mutex;
 use std::time::Instant;
+use sysinfo::{Disks, System};
 
 /// SystemMonitor wraps sysinfo to provide real-time hardware metrics.
 pub struct SystemMonitor {
@@ -76,14 +76,18 @@ impl SystemMonitor {
                 }
             }
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             if let Ok(entries) = std::fs::read_dir("/sys/block") {
                 for entry in entries.flatten() {
                     let name = entry.file_name();
                     let name_str = name.to_string_lossy();
-                    if name_str.starts_with("loop") || name_str.starts_with("ram") || name_str.starts_with("fd") || name_str.starts_with("sr") {
+                    if name_str.starts_with("loop")
+                        || name_str.starts_with("ram")
+                        || name_str.starts_with("fd")
+                        || name_str.starts_with("sr")
+                    {
                         continue;
                     }
                     let model_path = entry.path().join("device/model");
@@ -96,7 +100,7 @@ impl SystemMonitor {
                 }
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             if let Ok(output) = std::process::Command::new("system_profiler")
@@ -118,7 +122,7 @@ impl SystemMonitor {
                 }
             }
         }
-        
+
         "Undefined".to_string()
     }
 
@@ -129,14 +133,33 @@ impl SystemMonitor {
         let disks = self.disks.lock().unwrap();
 
         let cpu = sys.cpus().first().unwrap();
-        let cpu_brand = cpu.brand().split('@').next().unwrap_or("Unknown").trim().to_string();
-        let cpu_name = if cpu_brand.is_empty() { cpu.name().to_string() } else { cpu_brand };
-        
+        let cpu_brand = cpu
+            .brand()
+            .split('@')
+            .next()
+            .unwrap_or("Unknown")
+            .trim()
+            .to_string();
+        let cpu_name = if cpu_brand.is_empty() {
+            cpu.name().to_string()
+        } else {
+            cpu_brand
+        };
+
         let core_count = sys.cpus().len();
-        let core_count_str = format!("{} {}", core_count, if core_count > 1 { "Cores" } else { "Core" });
-        
+        let core_count_str = format!(
+            "{} {}",
+            core_count,
+            if core_count > 1 { "Cores" } else { "Core" }
+        );
+
         let cpu_freq = format!("{:.1} GHz", cpu.frequency() as f64 / 1000.0);
-        let cpu_bit_depth = if cfg!(target_pointer_width = "64") { "64-bit" } else { "32-bit" }.to_string();
+        let cpu_bit_depth = if cfg!(target_pointer_width = "64") {
+            "64-bit"
+        } else {
+            "32-bit"
+        }
+        .to_string();
 
         let processor = ProcessorDto {
             name: cpu_name,
@@ -149,15 +172,19 @@ impl SystemMonitor {
         if os_name == "Darwin" || os_name == "Mac OS" || os_name == "Mac OS X" {
             os_name = "macOS".to_string();
         }
-        
+
         let os_version = System::os_version().unwrap_or_default();
         let operating_system = format!("{os_name} {os_version}");
 
         let total_ram_bytes = sys.total_memory();
         let total_ram_formatted = format!("{} RAM", Self::get_converted_capacity(total_ram_bytes));
-        
+
         let proc_count = sys.processes().len();
-        let proc_count_str = format!("{} {}", proc_count, if proc_count > 1 { "Procs" } else { "Proc" });
+        let proc_count_str = format!(
+            "{} {}",
+            proc_count,
+            if proc_count > 1 { "Procs" } else { "Proc" }
+        );
 
         let machine = MachineDto {
             operating_system,
@@ -189,15 +216,22 @@ impl SystemMonitor {
                 main_storage = "Disk".to_string();
             }
         }
-        
-        let storage_total_formatted = format!("{} Total", Self::get_converted_capacity(total_storage_bytes));
-        let disk_count = disks.list().len();
-        let disk_count_str = format!("{} {}", disk_count, if disk_count > 1 { "Disks" } else { "Disk" });
 
-        // Sysinfo changed Windows swap behavior recently: it now returns ONLY the swap/paging file size 
+        let storage_total_formatted = format!(
+            "{} Total",
+            Self::get_converted_capacity(total_storage_bytes)
+        );
+        let disk_count = disks.list().len();
+        let disk_count_str = format!(
+            "{} {}",
+            disk_count,
+            if disk_count > 1 { "Disks" } else { "Disk" }
+        );
+
+        // Sysinfo changed Windows swap behavior recently: it now returns ONLY the swap/paging file size
         // directly in `sys.total_swap()`! My manual subtraction of physical RAM broke it and caused it to show 0.
         let swap_bytes = sys.total_swap();
-        
+
         let swap_amount = format!("{} Swap", Self::get_converted_capacity(swap_bytes));
 
         let storage = StorageDto {
@@ -207,7 +241,11 @@ impl SystemMonitor {
             swap_amount,
         };
 
-        InfoDto { processor, machine, storage }
+        InfoDto {
+            processor,
+            machine,
+            storage,
+        }
     }
 
     /// Get current dynamic hardware usage (CPU, RAM, Storage).
@@ -217,7 +255,7 @@ impl SystemMonitor {
         let disks = self.disks.lock().unwrap();
 
         let cpu_usage: f32 = sys.global_cpu_usage();
-        
+
         let total_ram = sys.total_memory();
         let used_ram = sys.used_memory();
         let ram_usage = if total_ram > 0 {
@@ -237,7 +275,7 @@ impl SystemMonitor {
                 used_storage += total - disk.available_space();
             }
         }
-        
+
         let storage_usage = if total_storage > 0 {
             ((used_storage as f64 / total_storage as f64) * 100.0).round() as i32
         } else {
@@ -254,7 +292,7 @@ impl SystemMonitor {
     /// Get system uptime.
     pub fn get_uptime(&self) -> UptimeDto {
         let uptime_secs = System::uptime();
-        
+
         let days = uptime_secs / 86400;
         let hours = (uptime_secs % 86400) / 3600;
         let minutes = (uptime_secs % 3600) / 60;
@@ -276,11 +314,11 @@ mod tests {
     #[test]
     fn test_system_monitor() {
         let monitor = SystemMonitor::new();
-        
+
         let info = monitor.get_info();
         assert!(!info.processor.name.is_empty());
         assert!(!info.machine.operating_system.is_empty());
-        
+
         let usage = monitor.get_usage();
         assert!(usage.processor >= 0 && usage.processor <= 100);
         assert!(usage.ram >= 0 && usage.ram <= 100);
