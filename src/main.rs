@@ -6,13 +6,17 @@ use axum::http::{HeaderValue, header};
 use axum::{
     Json, Router,
     extract::State,
-    response::Html,
+    response::{Html, IntoResponse},
     routing::{get, post},
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
+use rust_embed::RustEmbed;
+
+#[derive(RustEmbed)]
+#[folder = "assets/"]
+struct Assets;
 
 use crate::config::ConfigManager;
 use crate::models::{InfoDto, ResponseDto, SetupDto, UptimeDto, UsageDto};
@@ -103,10 +107,10 @@ async fn main() {
         .route("/api/usage", get(usage_handler))
         .route("/api/uptime", get(uptime_handler))
         .route("/api/setup", post(setup_handler))
-        .nest_service("/css", ServeDir::new("assets/css"))
-        .nest_service("/js", ServeDir::new("assets/js"))
-        .nest_service("/img", ServeDir::new("assets/img"))
-        .nest_service("/fonts", ServeDir::new("assets/fonts"))
+        .route("/css/*file", get(static_handler))
+        .route("/js/*file", get(static_handler))
+        .route("/img/*file", get(static_handler))
+        .route("/fonts/*file", get(static_handler))
         .layer(SetResponseHeaderLayer::overriding(
             header::X_FRAME_OPTIONS,
             HeaderValue::from_static("DENY"),
@@ -156,6 +160,18 @@ struct SetupTemplate {
     port: String,
     #[allow(dead_code)]
     port_overridden: bool,
+}
+
+async fn static_handler(uri: axum::http::Uri) -> impl IntoResponse {
+    let path = uri.path().trim_start_matches('/');
+
+    match Assets::get(path) {
+        Some(content) => {
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+            ([(axum::http::header::CONTENT_TYPE, mime.as_ref())], content.data).into_response()
+        }
+        None => axum::http::StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
