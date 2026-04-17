@@ -42,15 +42,19 @@ impl SystemMonitor {
     }
 
     fn get_converted_capacity(bytes: u64) -> String {
-        let bits = bytes as f64 * 8.0;
-        if (bits / 1.049e6) > 999.0 {
-            if (bits / 1.074e9) > 999.0 {
-                format!("{:.1} TiB", bits / 1.1e12)
+        let bytes_f64 = bytes as f64;
+        let mib = 1048576.0; // 1024^2
+        let gib = 1073741824.0; // 1024^3
+        let tib = 1099511627776.0; // 1024^4
+
+        if (bytes_f64 / mib) > 999.0 {
+            if (bytes_f64 / gib) > 999.0 {
+                format!("{:.1} TiB", bytes_f64 / tib)
             } else {
-                format!("{} GiB", (bits / 1.074e9).round())
+                format!("{} GiB", (bytes_f64 / gib).round())
             }
         } else {
-            format!("{} MiB", (bits / 1.049e6).round())
+            format!("{} MiB", (bytes_f64 / mib).round())
         }
     }
 
@@ -157,8 +161,14 @@ impl SystemMonitor {
         };
 
         let mut total_storage_bytes = 0;
+        let mut unique_disks = std::collections::HashSet::new();
+
         for disk in disks.list() {
-            total_storage_bytes += disk.total_space();
+            let name = disk.name().to_string_lossy().to_string();
+            let total = disk.total_space();
+            if unique_disks.insert((name, total)) {
+                total_storage_bytes += total;
+            }
         }
 
         let mut main_storage = Self::get_hardware_storage_model();
@@ -222,9 +232,15 @@ impl SystemMonitor {
 
         let mut total_storage = 0;
         let mut used_storage = 0;
+        let mut unique_disks = std::collections::HashSet::new();
+
         for disk in disks.list() {
-            total_storage += disk.total_space();
-            used_storage += disk.total_space() - disk.available_space();
+            let name = disk.name().to_string_lossy().to_string();
+            let total = disk.total_space();
+            if unique_disks.insert((name, total)) {
+                total_storage += total;
+                used_storage += total - disk.available_space();
+            }
         }
         
         let storage_usage = if total_storage > 0 {
