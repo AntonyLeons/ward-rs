@@ -107,10 +107,10 @@ async fn main() {
         .route("/api/usage", get(usage_handler))
         .route("/api/uptime", get(uptime_handler))
         .route("/api/setup", post(setup_handler))
-        .route("/css/*file", get(static_handler))
-        .route("/js/*file", get(static_handler))
-        .route("/img/*file", get(static_handler))
-        .route("/fonts/*file", get(static_handler))
+        .route("/css/{*file}", get(static_handler))
+        .route("/js/{*file}", get(static_handler))
+        .route("/img/{*file}", get(static_handler))
+        .route("/fonts/{*file}", get(static_handler))
         .layer(SetResponseHeaderLayer::overriding(
             header::X_FRAME_OPTIONS,
             HeaderValue::from_static("DENY"),
