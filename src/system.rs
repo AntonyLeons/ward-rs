@@ -132,28 +132,31 @@ impl SystemMonitor {
         let sys = self.sys.lock().unwrap();
         let disks = self.disks.lock().unwrap();
 
-        let cpu = sys.cpus().first().unwrap();
-        let cpu_brand = cpu
-            .brand()
-            .split('@')
-            .next()
-            .unwrap_or("Unknown")
-            .trim()
-            .to_string();
-        let cpu_name = if cpu_brand.is_empty() {
-            cpu.name().to_string()
+        let (cpu_name, cpu_freq) = if let Some(cpu) = sys.cpus().first() {
+            let cpu_brand = cpu
+                .brand()
+                .split('@')
+                .next()
+                .unwrap_or("Unknown")
+                .trim()
+                .to_string();
+            let name = if cpu_brand.is_empty() {
+                cpu.name().to_string()
+            } else {
+                cpu_brand
+            };
+            let freq = format!("{:.1} GHz", cpu.frequency() as f64 / 1000.0);
+            (name, freq)
         } else {
-            cpu_brand
+            ("Unknown CPU".to_string(), "0.0 GHz".to_string())
         };
 
         let core_count = sys.cpus().len();
         let core_count_str = format!(
             "{} {}",
             core_count,
-            if core_count > 1 { "Cores" } else { "Core" }
+            if core_count == 1 { "Core" } else { "Cores" }
         );
-
-        let cpu_freq = format!("{:.1} GHz", cpu.frequency() as f64 / 1000.0);
         let cpu_bit_depth = if cfg!(target_pointer_width = "64") {
             "64-bit"
         } else {

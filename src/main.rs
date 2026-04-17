@@ -148,17 +148,7 @@ struct IndexTemplate {
 #[derive(Template)]
 #[template(path = "setup.html")]
 struct SetupTemplate {
-    #[allow(dead_code)]
-    theme: String,
-    #[allow(dead_code)]
-    enable_fog: String,
-    #[allow(dead_code)]
-    background_color: String,
-    #[allow(dead_code)]
-    server_name: String,
-    #[allow(dead_code)]
     port: String,
-    #[allow(dead_code)]
     port_overridden: bool,
 }
 
@@ -181,17 +171,25 @@ async fn static_handler(uri: axum::http::Uri) -> impl IntoResponse {
 async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
     if !state.config_manager.is_configured() {
         let tmpl = SetupTemplate {
-            theme: "light".to_string(),
-            enable_fog: "true".to_string(),
-            background_color: "default".to_string(),
-            server_name: "Ward".to_string(),
             port: state.active_port.clone(),
             port_overridden: state.port_overridden,
         };
-        return Html(tmpl.render().unwrap());
+        return Html(
+            tmpl.render()
+                .unwrap_or_else(|_| "Internal Server Error".to_string()),
+        );
     }
 
-    let config = state.config_manager.read_config().unwrap();
+    let config = state
+        .config_manager
+        .read_config()
+        .unwrap_or_else(|| SetupDto {
+            server_name: "Ward".to_string(),
+            theme: "light".to_string(),
+            port: state.active_port.clone(),
+            enable_fog: "true".to_string(),
+            background_color: "default".to_string(),
+        });
     let monitor = state.sys_monitor.lock().await;
 
     let tmpl = IndexTemplate {
@@ -204,33 +202,22 @@ async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
         uptime: monitor.get_uptime(),
     };
 
-    Html(tmpl.render().unwrap())
+    Html(
+        tmpl.render()
+            .unwrap_or_else(|_| "Internal Server Error".to_string()),
+    )
 }
 
 #[allow(dead_code)]
 async fn setup_page_handler(State(state): State<Arc<AppState>>) -> Html<String> {
-    let config = state.config_manager.read_config();
     let tmpl = SetupTemplate {
-        theme: config
-            .as_ref()
-            .map(|c| c.theme.clone())
-            .unwrap_or_else(|| "light".to_string()),
-        enable_fog: config
-            .as_ref()
-            .map(|c| c.enable_fog.clone())
-            .unwrap_or_else(|| "true".to_string()),
-        background_color: config
-            .as_ref()
-            .map(|c| c.background_color.clone())
-            .unwrap_or_else(|| "default".to_string()),
-        server_name: config
-            .as_ref()
-            .map(|c| c.server_name.clone())
-            .unwrap_or_else(|| "Ward".to_string()),
         port: state.active_port.clone(),
         port_overridden: state.port_overridden,
     };
-    Html(tmpl.render().unwrap())
+    Html(
+        tmpl.render()
+            .unwrap_or_else(|_| "Internal Server Error".to_string()),
+    )
 }
 
 async fn info_handler(State(state): State<Arc<AppState>>) -> Json<InfoDto> {
