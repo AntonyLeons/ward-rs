@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:slim-bookworm AS builder
+FROM rust:slim-trixie AS builder
 
 # Create a new empty shell project
 WORKDIR /usr/src/ward-rs
@@ -20,7 +20,7 @@ RUN touch src/main.rs
 RUN cargo build --release
 
 # Production stage
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 WORKDIR /app
 
