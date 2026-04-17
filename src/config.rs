@@ -15,17 +15,13 @@ impl ConfigManager {
         }
     }
 
-    /// Check if the application has been configured by verifying the ini file exists.
+    /// Check if the application has been configured by verifying the ini file has valid config.
     pub fn is_configured(&self) -> bool {
-        Path::new(&self.file_path).exists()
+        self.read_config().is_some()
     }
 
     /// Read the current configuration from the ini file.
     pub fn read_config(&self) -> Option<SetupDto> {
-        if !self.is_configured() {
-            return None;
-        }
-
         let i = Ini::load_from_file(&self.file_path).ok()?;
         let section = i.section(Some("setup"))?;
 

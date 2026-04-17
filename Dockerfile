@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.88-slim-bookworm AS builder
+FROM rust:slim-bookworm AS builder
 
 # Create a new empty shell project
 WORKDIR /usr/src/ward-rs
@@ -15,7 +15,8 @@ COPY src ./src
 COPY templates ./templates
 COPY assets ./assets
 
-# Build the final binary
+# Ensure cargo rebuilds the binary
+RUN touch src/main.rs
 RUN cargo build --release
 
 # Production stage
@@ -30,8 +31,9 @@ RUN apt-get update && apt-get install -y libssl3 && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -s /bin/bash ward_user && chown -R ward_user /app
 USER ward_user
 
-# Copy the compiled binary
-COPY --from=builder /usr/src/ward/target/release/ward ./ward
+# Copy the compiled binary and assets
+COPY --from=builder /usr/src/ward-rs/target/release/ward ./ward
+COPY --from=builder /usr/src/ward-rs/assets ./assets
 
 # Create empty setup.ini or ensure it can be created
 RUN touch setup.ini && chmod 666 setup.ini

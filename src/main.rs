@@ -56,8 +56,31 @@ async fn main() {
     let sys_monitor = Arc::new(Mutex::new(SystemMonitor::new()));
     let config_manager = Arc::new(ConfigManager::new("setup.ini"));
 
+    let env_name = std::env::var("WARD_NAME").ok();
+    let env_theme = std::env::var("WARD_THEME").ok();
+    let env_port = std::env::var("WARD_PORT").ok();
+    let env_fog = std::env::var("WARD_FOG").ok();
+    let env_bg = std::env::var("WARD_BACKGROUND").ok();
+
+    let has_env_config = env_name.is_some()
+        || env_theme.is_some()
+        || env_port.is_some()
+        || env_fog.is_some()
+        || env_bg.is_some();
+
+    if has_env_config {
+        let setup_dto = SetupDto {
+            server_name: env_name.unwrap_or_else(|| "Ward".to_string()),
+            theme: env_theme.unwrap_or_else(|| "light".to_string()),
+            port: env_port.clone().unwrap_or_else(|| "4000".to_string()),
+            enable_fog: env_fog.unwrap_or_else(|| "true".to_string()),
+            background_color: env_bg.unwrap_or_else(|| "default".to_string()),
+        };
+        let _ = config_manager.write_config(&setup_dto);
+    }
+
     let port_from_cli = args.port;
-    let port_from_env = std::env::var("WARD_PORT").ok().and_then(|p| p.parse::<u16>().ok());
+    let port_from_env = env_port.and_then(|p| p.parse::<u16>().ok());
 
     let port_overridden = port_from_cli.is_some() || port_from_env.is_some();
 
