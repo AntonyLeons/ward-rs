@@ -95,7 +95,7 @@ mod tests {
         assert_eq!(read_dto.server_name, "TestServer");
         assert_eq!(read_dto.theme, Theme::Dark);
         assert_eq!(read_dto.port, 4000);
-        assert_eq!(read_dto.enable_fog, false);
+        assert!(!read_dto.enable_fog);
         assert_eq!(read_dto.background_color, "#123456");
 
         // Clean up

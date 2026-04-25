@@ -112,9 +112,7 @@ impl SetupDto {
             let bytes = self.background_color.as_bytes();
             let is_hex = bytes.len() == 7
                 && bytes[0] == b'#'
-                && bytes[1..]
-                    .iter()
-                    .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F'));
+                && bytes[1..].iter().all(|b| b.is_ascii_hexdigit());
             if !is_hex {
                 return Err(
                     "backgroundColor must be \"default\" or a hex color like \"#RRGGBB\""
