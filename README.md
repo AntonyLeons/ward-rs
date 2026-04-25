@@ -27,6 +27,21 @@ Download the latest release from [here](https://github.com/AntonyLeons/ward-rs/r
 ./ward
 ```
 
+### macOS note
+
+If you downloaded a release binary (especially from a `.zip`), it may not have execute permissions. Fix with:
+
+```console
+chmod +x ./ward-macos-arm64
+./ward-macos-arm64 --port 4000
+```
+
+If macOS blocks the binary due to quarantine/Gatekeeper, remove the quarantine attribute:
+
+```console
+xattr -d com.apple.quarantine ./ward-macos-arm64
+```
+
 ### About
 
 Ward is a simple and minimalistic server monitoring tool. Ward supports adaptive design system. Also, it supports dark theme.
