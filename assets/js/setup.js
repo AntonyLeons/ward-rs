@@ -118,8 +118,8 @@ function sendSetupRequest()
     const data = {
         serverName: serverName.value,
         theme: html.getAttribute("theme"),
-        port: port.value,
-        enableFog: String(enableFog.checked),
+        port: Number(port.value),
+        enableFog: enableFog.checked,
         backgroundColor: backgroundColor.value
     }
 

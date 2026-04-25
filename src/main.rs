@@ -5,6 +5,7 @@ pub mod system;
 use axum::http::{HeaderValue, header};
 use axum::{
     Json, Router,
+    extract::DefaultBodyLimit,
     extract::State,
     response::{Html, IntoResponse},
     routing::{get, post},
@@ -19,7 +20,7 @@ use tower_http::set_header::SetResponseHeaderLayer;
 struct Assets;
 
 use crate::config::ConfigManager;
-use crate::models::{InfoDto, ResponseDto, SetupDto, UptimeDto, UsageDto};
+use crate::models::{InfoDto, ResponseDto, SetupDto, Theme, UptimeDto, UsageDto};
 use crate::system::SystemMonitor;
 
 struct AppState {
@@ -74,12 +75,26 @@ async fn main() {
     if has_env_config {
         let setup_dto = SetupDto {
             server_name: env_name.unwrap_or_else(|| "Ward".to_string()),
-            theme: env_theme.unwrap_or_else(|| "light".to_string()),
-            port: env_port.clone().unwrap_or_else(|| "4000".to_string()),
-            enable_fog: env_fog.unwrap_or_else(|| "true".to_string()),
+            theme: env_theme
+                .as_deref()
+                .unwrap_or("light")
+                .parse()
+                .unwrap_or(Theme::Light),
+            port: env_port
+                .as_deref()
+                .unwrap_or("4000")
+                .parse::<u16>()
+                .unwrap_or(4000),
+            enable_fog: env_fog
+                .as_deref()
+                .unwrap_or("true")
+                .parse::<bool>()
+                .unwrap_or(true),
             background_color: env_bg.unwrap_or_else(|| "default".to_string()),
         };
-        let _ = config_manager.write_config(&setup_dto);
+        if setup_dto.validate().is_ok() {
+            let _ = config_manager.write_config(&setup_dto);
+        }
     }
 
     let port_from_cli = args.port;
@@ -87,12 +102,9 @@ async fn main() {
 
     let port_overridden = port_from_cli.is_some() || port_from_env.is_some();
 
-    let port = port_from_cli.or(port_from_env).unwrap_or_else(|| {
-        config_manager
-            .read_config()
-            .and_then(|c| c.port.parse().ok())
-            .unwrap_or(4000)
-    });
+    let port = port_from_cli
+        .or(port_from_env)
+        .unwrap_or_else(|| config_manager.read_config().map(|c| c.port).unwrap_or(4000));
 
     let app_state = Arc::new(AppState {
         sys_monitor,
@@ -111,6 +123,7 @@ async fn main() {
         .route("/js/{*file}", get(static_handler))
         .route("/img/{*file}", get(static_handler))
         .route("/fonts/{*file}", get(static_handler))
+        .layer(DefaultBodyLimit::max(16 * 1024))
         .layer(SetResponseHeaderLayer::overriding(
             header::X_FRAME_OPTIONS,
             HeaderValue::from_static("DENY"),
@@ -136,8 +149,8 @@ use askama::Template;
 #[derive(Template)]
 #[template(path = "index.html")]
 struct IndexTemplate {
-    theme: String,
-    enable_fog: String,
+    theme: Theme,
+    enable_fog: bool,
     background_color: String,
     server_name: String,
     version: String,
@@ -185,9 +198,9 @@ async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
         .read_config()
         .unwrap_or_else(|| SetupDto {
             server_name: "Ward".to_string(),
-            theme: "light".to_string(),
-            port: state.active_port.clone(),
-            enable_fog: "true".to_string(),
+            theme: Theme::Light,
+            port: state.active_port.parse::<u16>().unwrap_or(4000),
+            enable_fog: true,
             background_color: "default".to_string(),
         });
     let monitor = state.sys_monitor.lock().await;
@@ -238,20 +251,36 @@ async fn uptime_handler(State(state): State<Arc<AppState>>) -> Json<UptimeDto> {
 async fn setup_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SetupDto>,
-) -> Json<ResponseDto> {
+) -> impl IntoResponse {
     if state.config_manager.is_configured() {
-        return Json(ResponseDto {
-            message: "Application already configured".to_string(),
-        });
+        return (
+            axum::http::StatusCode::OK,
+            Json(ResponseDto {
+                message: "Application already configured".to_string(),
+            }),
+        );
+    }
+
+    if let Err(message) = payload.validate() {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(ResponseDto { message }),
+        );
     }
 
     match state.config_manager.write_config(&payload) {
-        Ok(_) => Json(ResponseDto {
-            message: "Settings saved correctly".to_string(),
-        }),
-        Err(e) => Json(ResponseDto {
-            message: format!("Failed to save settings: {e}"),
-        }),
+        Ok(_) => (
+            axum::http::StatusCode::OK,
+            Json(ResponseDto {
+                message: "Settings saved correctly".to_string(),
+            }),
+        ),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ResponseDto {
+                message: format!("Failed to save settings: {e}"),
+            }),
+        ),
     }
 }
 
@@ -260,6 +289,7 @@ mod tests {
     use super::*;
     use axum::{
         body::Body,
+        body::to_bytes,
         http::{Request, StatusCode},
     };
     use tower::ServiceExt;
@@ -282,6 +312,7 @@ mod tests {
             .route("/api/usage", get(usage_handler))
             .route("/api/uptime", get(uptime_handler))
             .route("/api/setup", post(setup_handler))
+            .layer(DefaultBodyLimit::max(16 * 1024))
             .with_state(app_state)
     }
 
@@ -341,8 +372,8 @@ mod tests {
         let setup_json = r#"{
             "serverName": "TestServer",
             "theme": "dark",
-            "port": "4000",
-            "enableFog": "true",
+            "port": 4000,
+            "enableFog": true,
             "backgroundColor": "default"
         }"#;
 
@@ -361,6 +392,71 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         // Clean up
+        let _ = std::fs::remove_file("test_integration.ini");
+    }
+
+    #[tokio::test]
+    async fn test_api_setup_validation_error() {
+        let app = test_app();
+
+        let setup_json = r#"{
+            "serverName": "",
+            "theme": "dark",
+            "port": 4000,
+            "enableFog": true,
+            "backgroundColor": "default"
+        }"#;
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/setup")
+                    .header("content-type", "application/json")
+                    .body(Body::from(setup_json))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let dto: ResponseDto = serde_json::from_slice(&body).unwrap();
+        assert!(dto.message.contains("serverName"));
+
+        let _ = std::fs::remove_file("test_integration.ini");
+    }
+
+    #[tokio::test]
+    async fn test_api_setup_body_limit() {
+        let app = test_app();
+
+        let big_name = "a".repeat(20 * 1024);
+        let setup_json = format!(
+            r#"{{
+            "serverName": "{big_name}",
+            "theme": "dark",
+            "port": 4000,
+            "enableFog": true,
+            "backgroundColor": "default"
+        }}"#
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/setup")
+                    .header("content-type", "application/json")
+                    .body(Body::from(setup_json))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+
         let _ = std::fs::remove_file("test_integration.ini");
     }
 }
