@@ -27,6 +27,12 @@ Download the latest release from [here](https://github.com/AntonyLeons/ward-rs/r
 ./ward
 ```
 
+You can override the listening port via CLI:
+
+```console
+./ward --port 4000
+```
+
 ### macOS note
 
 If you downloaded a release binary (especially from a `.zip`), it may not have execute permissions. Fix with:
