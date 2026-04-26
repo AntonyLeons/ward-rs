@@ -1129,7 +1129,7 @@ dependencies = [
 
 [[package]]
 name = "ward-rs"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "askama",
  "axum",
