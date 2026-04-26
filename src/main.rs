@@ -210,7 +210,7 @@ async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
         enable_fog: config.enable_fog,
         background_color: config.background_color,
         server_name: config.server_name,
-        version: format!("{} (Rust)", env!("CARGO_PKG_VERSION")),
+        version: env!("CARGO_PKG_VERSION").to_string(),
         info: monitor.get_info(),
         uptime: monitor.get_uptime(),
     };
