@@ -24,6 +24,12 @@ function indexInitialization()
     uptimeXHR = new XMLHttpRequest();
 
     sendUsageRequest();
+    sendInfoRequest();
+    sendUptimeRequest();
+
+    setInterval(sendUsageRequest, 1000);
+    setInterval(sendUptimeRequest, 1000);
+    setInterval(sendInfoRequest, 10000);
 }
 
 /**
@@ -75,6 +81,11 @@ function getRandomSequenceArray()
  */
 function sendUsageRequest()
 {
+    if ((usageXHR.readyState !== 0) && (usageXHR.readyState !== 4))
+    {
+        return;
+    }
+
     usageXHR.onreadystatechange = function()
     {
         if ((this.readyState === 4) && (this.status === 200))
@@ -83,8 +94,6 @@ function sendUsageRequest()
 
             labelsTick(response);
             chartTick(response);
-
-            sendInfoRequest();
         }
     }
 
@@ -97,6 +106,11 @@ function sendUsageRequest()
  */
 function sendInfoRequest()
 {
+    if ((infoXHR.readyState !== 0) && (infoXHR.readyState !== 4))
+    {
+        return;
+    }
+
     infoXHR.onreadystatechange = function()
     {
         if ((this.readyState === 4) && (this.status === 200))
@@ -107,8 +121,6 @@ function sendInfoRequest()
             currentProcCount.innerHTML = response.machine.procCount;
             currentTotalStorage.innerHTML = response.storage.total;
             currentDiskCount.innerHTML = response.storage.diskCount;
-
-            sendUptimeRequest();
         }
     }
 
@@ -121,6 +133,11 @@ function sendInfoRequest()
  */
 function sendUptimeRequest()
 {
+    if ((uptimeXHR.readyState !== 0) && (uptimeXHR.readyState !== 4))
+    {
+        return;
+    }
+
     uptimeXHR.onreadystatechange = function()
     {
         if ((this.readyState === 4) && (this.status === 200))
@@ -131,8 +148,6 @@ function sendUptimeRequest()
             hours.innerHTML = response.hours;
             minutes.innerHTML = response.minutes;
             seconds.innerHTML = response.seconds;
-
-            setTimeout(sendUsageRequest, 1000);
         }
     }
 
