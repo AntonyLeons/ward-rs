@@ -1,9 +1,16 @@
-
 /**
  * Initializes uptime, labels and chart values
  */
+let uptimeTotalSeconds;
+
 function indexInitialization()
 {
+    if (window.__wardIndexInitialized)
+    {
+        return;
+    }
+    window.__wardIndexInitialized = true;
+
     showCards();
 
     currentClockSpeed = document.getElementById("currentClockSpeed");
@@ -28,7 +35,8 @@ function indexInitialization()
     sendUptimeRequest();
 
     setInterval(sendUsageRequest, 1000);
-    setInterval(sendUptimeRequest, 1000);
+    setInterval(tickUptimeSecond, 1000);
+    setInterval(sendUptimeRequest, 30000);
     setInterval(sendInfoRequest, 10000);
 }
 
@@ -144,15 +152,51 @@ function sendUptimeRequest()
         {
             const response = JSON.parse(this.response);
 
-            days.innerHTML = response.days;
-            hours.innerHTML = response.hours;
-            minutes.innerHTML = response.minutes;
-            seconds.innerHTML = response.seconds;
+            const d = Number(response.days);
+            const h = Number(response.hours);
+            const m = Number(response.minutes);
+            const s = Number(response.seconds);
+
+            if (!Number.isNaN(d) && !Number.isNaN(h) && !Number.isNaN(m) && !Number.isNaN(s))
+            {
+                uptimeTotalSeconds = ((d * 24 + h) * 60 + m) * 60 + s;
+                renderUptime();
+            }
         }
     }
 
     uptimeXHR.open("GET", "/api/uptime");
     uptimeXHR.send();
+}
+
+function tickUptimeSecond()
+{
+    if (uptimeTotalSeconds === undefined)
+    {
+        return;
+    }
+
+    uptimeTotalSeconds += 1;
+    renderUptime();
+}
+
+function renderUptime()
+{
+    if (uptimeTotalSeconds === undefined)
+    {
+        return;
+    }
+
+    const total = uptimeTotalSeconds;
+    const d = Math.floor(total / 86400);
+    const h = Math.floor((total % 86400) / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = Math.floor(total % 60);
+
+    days.innerHTML = String(d);
+    hours.innerHTML = String(h);
+    minutes.innerHTML = String(m);
+    seconds.innerHTML = String(s);
 }
 
 /**

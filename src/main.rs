@@ -26,6 +26,7 @@ use crate::system::SystemMonitor;
 struct AppState {
     sys_monitor: Arc<Mutex<SystemMonitor>>,
     config_manager: Arc<ConfigManager>,
+    env_setup: Option<SetupDto>,
     active_port: String,
     port_overridden: bool,
 }
@@ -72,9 +73,9 @@ async fn main() {
         || env_fog.is_some()
         || env_bg.is_some();
 
-    if has_env_config {
+    let env_setup = if has_env_config {
         let setup_dto = SetupDto {
-            server_name: env_name.unwrap_or_else(|| "Ward".to_string()),
+            server_name: env_name.clone().unwrap_or_else(|| "Ward".to_string()),
             theme: env_theme
                 .as_deref()
                 .unwrap_or("light")
@@ -90,15 +91,25 @@ async fn main() {
                 .unwrap_or("true")
                 .parse::<bool>()
                 .unwrap_or(true),
-            background_color: env_bg.unwrap_or_else(|| "default".to_string()),
+            background_color: env_bg.clone().unwrap_or_else(|| "default".to_string()),
         };
         if setup_dto.validate().is_ok() {
-            let _ = config_manager.write_config(&setup_dto);
+            Some(setup_dto)
+        } else {
+            None
         }
+    } else {
+        None
+    };
+
+    if let Some(setup_dto) = &env_setup
+        && let Err(e) = config_manager.write_config(setup_dto)
+    {
+        tracing::warn!("Failed to write config from env: {}", e);
     }
 
     let port_from_cli = args.port;
-    let port_from_env = env_port.and_then(|p| p.parse::<u16>().ok());
+    let port_from_env = env_port.as_deref().and_then(|p| p.parse::<u16>().ok());
 
     let port_overridden = port_from_cli.is_some() || port_from_env.is_some();
 
@@ -109,6 +120,7 @@ async fn main() {
     let app_state = Arc::new(AppState {
         sys_monitor,
         config_manager: config_manager.clone(),
+        env_setup,
         active_port: port.to_string(),
         port_overridden,
     });
@@ -172,7 +184,10 @@ async fn static_handler(uri: axum::http::Uri) -> impl IntoResponse {
         Some(content) => {
             let mime = mime_guess::from_path(path).first_or_octet_stream();
             (
-                [(axum::http::header::CONTENT_TYPE, mime.as_ref())],
+                [
+                    (axum::http::header::CONTENT_TYPE, mime.as_ref()),
+                    (axum::http::header::CACHE_CONTROL, "no-cache"),
+                ],
                 content.data,
             )
                 .into_response()
@@ -181,21 +196,27 @@ async fn static_handler(uri: axum::http::Uri) -> impl IntoResponse {
     }
 }
 
-async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
-    if !state.config_manager.is_configured() {
+async fn index_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let no_store = [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))];
+
+    if state.env_setup.is_none() && !state.config_manager.is_configured() {
         let tmpl = SetupTemplate {
             port: state.active_port.clone(),
             port_overridden: state.port_overridden,
         };
-        return Html(
-            tmpl.render()
-                .unwrap_or_else(|_| "Internal Server Error".to_string()),
+        return (
+            no_store,
+            Html(
+                tmpl.render()
+                    .unwrap_or_else(|_| "Internal Server Error".to_string()),
+            ),
         );
     }
 
     let config = state
-        .config_manager
-        .read_config()
+        .env_setup
+        .clone()
+        .or_else(|| state.config_manager.read_config())
         .unwrap_or_else(|| SetupDto {
             server_name: "Ward".to_string(),
             theme: Theme::Light,
@@ -215,9 +236,12 @@ async fn index_handler(State(state): State<Arc<AppState>>) -> Html<String> {
         uptime: monitor.get_uptime(),
     };
 
-    Html(
-        tmpl.render()
-            .unwrap_or_else(|_| "Internal Server Error".to_string()),
+    (
+        no_store,
+        Html(
+            tmpl.render()
+                .unwrap_or_else(|_| "Internal Server Error".to_string()),
+        ),
     )
 }
 
@@ -252,7 +276,7 @@ async fn setup_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SetupDto>,
 ) -> impl IntoResponse {
-    if state.config_manager.is_configured() {
+    if state.env_setup.is_some() || state.config_manager.is_configured() {
         return (
             axum::http::StatusCode::OK,
             Json(ResponseDto {
@@ -302,6 +326,7 @@ mod tests {
         let app_state = Arc::new(AppState {
             sys_monitor,
             config_manager,
+            env_setup: None,
             active_port: "4000".to_string(),
             port_overridden: false,
         });
