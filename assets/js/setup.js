@@ -92,8 +92,8 @@ function sendSetupRequest()
             if (this.status === 200)
             {
                 setTimeout(function() {
-                    window.location = `http://${window.location.hostname}:${port.value}`;
-                }, 2500);
+                    window.location = "/";
+                }, 250);
             }
             else
             {

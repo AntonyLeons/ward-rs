@@ -102,7 +102,7 @@ impl SetupDto {
         if server_name.is_empty() {
             return Err("serverName cannot be empty".to_string());
         }
-        if server_name.chars().count() > 10 {
+        if server_name.chars().count() > 32 {
             return Err("serverName too long".to_string());
         }
         if self.port < 1024 {
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn validate_err_long_server_name() {
         let mut dto = base_setup();
-        dto.server_name = "01234567890".to_string();
+        dto.server_name = "012345678901234567890123456789012".to_string();
         assert!(dto.validate().is_err());
     }
 
