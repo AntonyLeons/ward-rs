@@ -125,23 +125,16 @@ async fn main() {
         port_overridden,
     });
 
-    let mut app = Router::new()
+    let app = Router::new()
         .route("/", get(index_handler))
         .route("/api/info", get(info_handler))
         .route("/api/usage", get(usage_handler))
         .route("/api/uptime", get(uptime_handler))
+        .route("/api/setup", post(setup_handler))
         .route("/css/{*file}", get(static_handler))
         .route("/js/{*file}", get(static_handler))
         .route("/img/{*file}", get(static_handler))
-        .route("/fonts/{*file}", get(static_handler));
-
-    let setup_enabled = app_state.env_setup.is_none() && !app_state.config_manager.is_configured();
-
-    if setup_enabled {
-        app = app.route("/api/setup", post(setup_handler));
-    }
-
-    app = app
+        .route("/fonts/{*file}", get(static_handler))
         .layer(DefaultBodyLimit::max(16 * 1024))
         .layer(SetResponseHeaderLayer::overriding(
             header::X_FRAME_OPTIONS,
@@ -154,9 +147,8 @@ async fn main() {
         .layer(SetResponseHeaderLayer::overriding(
             header::X_XSS_PROTECTION,
             HeaderValue::from_static("1; mode=block"),
-        ));
-
-    let app = app.with_state(app_state);
+        ))
+        .with_state(app_state);
 
     let addr = format!("0.0.0.0:{port}");
     tracing::info!("Listening on {}", addr);
@@ -326,38 +318,32 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    fn test_app(env_setup: Option<SetupDto>) -> Router {
+    fn test_app() -> Router {
         let sys_monitor = Arc::new(Mutex::new(SystemMonitor::new()));
         let config_manager = Arc::new(ConfigManager::new("test_integration.ini"));
         let _ = std::fs::remove_file("test_integration.ini"); // ensure clean
 
-        let setup_enabled = env_setup.is_none() && !config_manager.is_configured();
-
         let app_state = Arc::new(AppState {
             sys_monitor,
             config_manager,
-            env_setup,
+            env_setup: None,
             active_port: "4000".to_string(),
             port_overridden: false,
         });
 
-        let mut app = Router::new()
+        Router::new()
             .route("/", get(index_handler))
             .route("/api/info", get(info_handler))
             .route("/api/usage", get(usage_handler))
-            .route("/api/uptime", get(uptime_handler));
-
-        if setup_enabled {
-            app = app.route("/api/setup", post(setup_handler));
-        }
-
-        app.layer(DefaultBodyLimit::max(16 * 1024))
+            .route("/api/uptime", get(uptime_handler))
+            .route("/api/setup", post(setup_handler))
+            .layer(DefaultBodyLimit::max(16 * 1024))
             .with_state(app_state)
     }
 
     #[tokio::test]
     async fn test_index_unconfigured() {
-        let app = test_app(None);
+        let app = test_app();
 
         let request = Request::builder().uri("/").body(Body::empty()).unwrap();
         let response = app.oneshot(request).await.unwrap();
@@ -367,7 +353,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_info() {
-        let app = test_app(None);
+        let app = test_app();
 
         let request = Request::builder()
             .uri("/api/info")
@@ -380,7 +366,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_usage() {
-        let app = test_app(None);
+        let app = test_app();
 
         let request = Request::builder()
             .uri("/api/usage")
@@ -393,7 +379,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_uptime() {
-        let app = test_app(None);
+        let app = test_app();
 
         let request = Request::builder()
             .uri("/api/uptime")
@@ -406,7 +392,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_setup() {
-        let app = test_app(None);
+        let app = test_app();
 
         let setup_json = r#"{
             "serverName": "TestServer",
@@ -436,7 +422,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_setup_validation_error() {
-        let app = test_app(None);
+        let app = test_app();
 
         let setup_json = r#"{
             "serverName": "",
@@ -469,7 +455,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_setup_body_limit() {
-        let app = test_app(None);
+        let app = test_app();
 
         let big_name = "a".repeat(20 * 1024);
         let setup_json = format!(
@@ -497,59 +483,5 @@ mod tests {
         assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
 
         let _ = std::fs::remove_file("test_integration.ini");
-    }
-
-    #[tokio::test]
-    async fn test_api_setup_disabled_when_env_config_present() {
-        let app = test_app(Some(SetupDto {
-            server_name: "Ward".to_string(),
-            theme: Theme::Dark,
-            port: 4000,
-            enable_fog: true,
-            background_color: "default".to_string(),
-        }));
-
-        let setup_json = r#"{
-            "serverName": "TestServer",
-            "theme": "dark",
-            "port": 4000,
-            "enableFog": true,
-            "backgroundColor": "default"
-        }"#;
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/api/setup")
-                    .header("content-type", "application/json")
-                    .body(Body::from(setup_json))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn test_index_does_not_show_setup_when_env_config_present() {
-        let app = test_app(Some(SetupDto {
-            server_name: "Ward".to_string(),
-            theme: Theme::Dark,
-            port: 4000,
-            enable_fog: true,
-            background_color: "default".to_string(),
-        }));
-
-        let request = Request::builder().uri("/").body(Body::empty()).unwrap();
-        let response = app.oneshot(request).await.unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        let html = String::from_utf8_lossy(&body);
-        assert!(html.contains("container index"));
-        assert!(!html.contains("container setup"));
     }
 }
