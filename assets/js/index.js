@@ -187,16 +187,18 @@ function renderUptime()
         return;
     }
 
+    const pad2 = (n) => String(n).padStart(2, "0");
+
     const total = uptimeTotalSeconds;
     const d = Math.floor(total / 86400);
     const h = Math.floor((total % 86400) / 3600);
     const m = Math.floor((total % 3600) / 60);
     const s = Math.floor(total % 60);
 
-    days.innerHTML = String(d);
-    hours.innerHTML = String(h);
-    minutes.innerHTML = String(m);
-    seconds.innerHTML = String(s);
+    days.innerHTML = pad2(d);
+    hours.innerHTML = pad2(h);
+    minutes.innerHTML = pad2(m);
+    seconds.innerHTML = pad2(s);
 }
 
 /**
