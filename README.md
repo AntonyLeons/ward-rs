@@ -2,13 +2,26 @@
 <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/AntonyLeons/ward-rs/rust.yml">
 <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/antonyleons/ward?style=plastic">
 </h3>
-<h3 align = "center">
-    <img src = "images/logo.png" alt = "Logo" />
-</h3>
+
 
 ---
 
 ## [Demo](https://status.leons.dev)
+
+### About
+
+Ward is a simple and minimalistic server monitoring tool. Ward supports adaptive design system. Also, it supports dark theme.
+It shows only principal information and can be used, if you want to see nice looking dashboard instead looking on bunch of numbers and graphs.
+Ward works nice on all popular operating systems, because it uses [sysinfo](https://github.com/GuillaumeGomez/sysinfo).
+
+### Why ward-rs
+
+ward-rs is the newer, faster, lighter Ward.
+
+- 🧠 **Memory**: ~5MB–8MB RAM vs ~130MB–189MB (≈95% less).
+- 📦 **Size**: ~6MB–8MB binary vs ~45MB `ward.jar` (smaller Docker image too).
+- ⚡ **Startup**: <10ms startup vs ~1.5s–2.5s (100x+ faster).
+- 🧊 **CPU idle**: effectively 0% idle CPU (no GC/JVM overhead).
 
 # Quick start
 
@@ -47,21 +60,6 @@ If macOS blocks the binary due to quarantine/Gatekeeper, remove the quarantine a
 ```console
 xattr -d com.apple.quarantine ./ward-macos-arm64
 ```
-
-### About
-
-Ward is a simple and minimalistic server monitoring tool. Ward supports adaptive design system. Also, it supports dark theme.
-It shows only principal information and can be used, if you want to see nice looking dashboard instead looking on bunch of numbers and graphs.
-Ward works nice on all popular operating systems, because it uses [sysinfo](https://github.com/GuillaumeGomez/sysinfo).
-
-### Why ward-rs
-
-ward-rs is the newer, faster, lighter Ward.
-
-- 🧠 **Memory**: ~5MB–8MB RAM vs ~130MB–189MB (≈95% less).
-- 📦 **Size**: ~6MB–8MB binary vs ~45MB `ward.jar` (smaller Docker image too).
-- ⚡ **Startup**: <10ms startup vs ~1.5s–2.5s (100x+ faster).
-- 🧊 **CPU idle**: effectively 0% idle CPU (no GC/JVM overhead).
 
 **All features tested on:** `Windows` `Linux`
 
