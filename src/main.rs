@@ -245,7 +245,6 @@ async fn index_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse 
     )
 }
 
-
 async fn info_handler(State(state): State<Arc<AppState>>) -> Json<InfoDto> {
     let monitor = state.sys_monitor.lock().await;
     Json(monitor.get_info())
