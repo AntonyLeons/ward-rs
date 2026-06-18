@@ -690,7 +690,7 @@ body {
     border-style: solid;
     border-width: var(--border-width-chart-triangle-grid-div);
     opacity: 0;
-    animation: fade-in-triangle;
+    animation: fade-in-square;
     animation-duration: var(--animation-duration-fade-in-triangle);
     animation-delay: var(--animation-delay-chart-triangle-grid-div);
     animation-fill-mode: forwards;
