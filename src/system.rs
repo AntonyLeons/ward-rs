@@ -29,10 +29,10 @@ impl SystemMonitor {
         let mut main_storage = Self::get_hardware_storage_model();
         if main_storage == "Undefined" {
             let filtered = Self::get_filtered_disks(&disks);
-            if let Some((name, _, _)) = filtered.first() {
-                if !name.is_empty() {
-                    main_storage = name.clone();
-                }
+            if let Some((name, _, _)) = filtered.first()
+                && !name.is_empty()
+            {
+                main_storage = name.clone();
             }
             if main_storage == "Undefined" {
                 main_storage = "Disk".to_string();
