@@ -1,0 +1,2 @@
+# Mark assets directory as vendored so GitHub Linguist excludes static CSS/JS files from repository language statistics
+assets/** linguist-vendored
