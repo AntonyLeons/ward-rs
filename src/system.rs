@@ -8,6 +8,8 @@ pub struct SystemMonitor {
     sys: Mutex<System>,
     disks: Mutex<Disks>,
     last_update: Mutex<Instant>,
+    main_storage: String,
+    operating_system: String,
 }
 
 impl Default for SystemMonitor {
@@ -23,10 +25,28 @@ impl SystemMonitor {
         sys.refresh_all();
         sys.refresh_cpu_usage();
         let disks = Disks::new_with_refreshed_list();
+
+        let mut main_storage = Self::get_hardware_storage_model();
+        if main_storage == "Undefined" {
+            let filtered = Self::get_filtered_disks(&disks);
+            if let Some((name, _, _)) = filtered.first() {
+                if !name.is_empty() {
+                    main_storage = name.clone();
+                }
+            }
+            if main_storage == "Undefined" {
+                main_storage = "Disk".to_string();
+            }
+        }
+
+        let operating_system = Self::get_os_info();
+
         Self {
             sys: Mutex::new(sys),
             disks: Mutex::new(disks),
             last_update: Mutex::new(Instant::now()),
+            main_storage,
+            operating_system,
         }
     }
 
@@ -41,6 +61,33 @@ impl SystemMonitor {
             disks.refresh(true);
             *last_update = Instant::now();
         }
+    }
+
+    /// Get list of active, unique, non-virtual disks.
+    fn get_filtered_disks(disks: &Disks) -> Vec<(String, u64, u64)> {
+        let mut unique_disks = std::collections::HashSet::new();
+        let mut result = Vec::new();
+
+        for disk in disks.list() {
+            let fs = disk.file_system().to_string_lossy().to_lowercase();
+            let name = disk.name().to_string_lossy().to_string();
+
+            // Ignore virtual file systems to prevent double counting in Docker
+            if fs == "overlay"
+                || fs == "tmpfs"
+                || fs == "devtmpfs"
+                || fs == "shm"
+                || fs == "squashfs"
+            {
+                continue;
+            }
+
+            let total = disk.total_space();
+            if total > 0 && unique_disks.insert((name.clone(), total)) {
+                result.push((name, total, disk.available_space()));
+            }
+        }
+        result
     }
 
     fn get_converted_capacity(bytes: u64) -> String {
@@ -203,8 +250,6 @@ impl SystemMonitor {
             bit_depth: cpu_bit_depth.clone(),
         };
 
-        let operating_system = Self::get_os_info();
-
         let total_ram_bytes = sys.total_memory();
         let total_ram_formatted = format!("{} RAM", Self::get_converted_capacity(total_ram_bytes));
 
@@ -216,66 +261,20 @@ impl SystemMonitor {
         );
 
         let machine = MachineDto {
-            operating_system,
+            operating_system: self.operating_system.clone(),
             total_ram: total_ram_formatted,
             ram_type_or_os_bit_depth: cpu_bit_depth.clone(), // sysinfo doesn't easily provide RAM DDR generation, fallback to bit-depth like Java version
             proc_count: proc_count_str,
         };
 
-        let mut total_storage_bytes = 0;
-        let mut unique_disks = std::collections::HashSet::new();
-
-        for disk in disks.list() {
-            let fs = disk.file_system().to_string_lossy().to_lowercase();
-            let name = disk.name().to_string_lossy().to_string();
-
-            // Ignore virtual file systems to prevent double counting in Docker
-            if fs == "overlay"
-                || fs == "tmpfs"
-                || fs == "devtmpfs"
-                || fs == "shm"
-                || fs == "squashfs"
-            {
-                continue;
-            }
-
-            let total = disk.total_space();
-            if total > 0 && unique_disks.insert((name, total)) {
-                total_storage_bytes += total;
-            }
-        }
-
-        let mut main_storage = Self::get_hardware_storage_model();
-        if main_storage == "Undefined" {
-            for disk in disks.list() {
-                let fs = disk.file_system().to_string_lossy().to_lowercase();
-                if fs == "overlay"
-                    || fs == "tmpfs"
-                    || fs == "devtmpfs"
-                    || fs == "shm"
-                    || fs == "squashfs"
-                {
-                    continue;
-                }
-                if disk.total_space() == 0 {
-                    continue;
-                }
-                let name = disk.name().to_string_lossy().to_string();
-                if !name.is_empty() {
-                    main_storage = name;
-                    break;
-                }
-            }
-            if main_storage == "Undefined" {
-                main_storage = "Disk".to_string();
-            }
-        }
+        let filtered = Self::get_filtered_disks(&disks);
+        let total_storage_bytes: u64 = filtered.iter().map(|(_, total, _)| total).sum();
+        let disk_count = filtered.len();
 
         let storage_total_formatted = format!(
             "{} Total",
             Self::get_converted_capacity(total_storage_bytes)
         );
-        let disk_count = unique_disks.len();
         let disk_count_str = format!(
             "{} {}",
             disk_count,
@@ -289,7 +288,7 @@ impl SystemMonitor {
         let swap_amount = format!("{} Swap", Self::get_converted_capacity(swap_bytes));
 
         let storage = StorageDto {
-            main_storage,
+            main_storage: self.main_storage.clone(),
             total: storage_total_formatted,
             disk_count: disk_count_str,
             swap_amount,
@@ -318,29 +317,12 @@ impl SystemMonitor {
             0
         };
 
+        let filtered = Self::get_filtered_disks(&disks);
         let mut total_storage = 0;
         let mut used_storage = 0;
-        let mut unique_disks = std::collections::HashSet::new();
-
-        for disk in disks.list() {
-            let fs = disk.file_system().to_string_lossy().to_lowercase();
-            let name = disk.name().to_string_lossy().to_string();
-
-            // Ignore virtual file systems to prevent double counting in Docker
-            if fs == "overlay"
-                || fs == "tmpfs"
-                || fs == "devtmpfs"
-                || fs == "shm"
-                || fs == "squashfs"
-            {
-                continue;
-            }
-
-            let total = disk.total_space();
-            if total > 0 && unique_disks.insert((name, total)) {
-                total_storage += total;
-                used_storage += total - disk.available_space();
-            }
+        for (_, total, available) in filtered {
+            total_storage += total;
+            used_storage += total - available;
         }
 
         let storage_usage = if total_storage > 0 {

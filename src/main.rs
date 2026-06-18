@@ -245,17 +245,6 @@ async fn index_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse 
     )
 }
 
-#[allow(dead_code)]
-async fn setup_page_handler(State(state): State<Arc<AppState>>) -> Html<String> {
-    let tmpl = SetupTemplate {
-        port: state.active_port.clone(),
-        port_overridden: state.port_overridden,
-    };
-    Html(
-        tmpl.render()
-            .unwrap_or_else(|_| "Internal Server Error".to_string()),
-    )
-}
 
 async fn info_handler(State(state): State<Arc<AppState>>) -> Json<InfoDto> {
     let monitor = state.sys_monitor.lock().await;
@@ -318,10 +307,10 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    fn test_app() -> Router {
+    fn test_app(config_path: &str) -> Router {
         let sys_monitor = Arc::new(Mutex::new(SystemMonitor::new()));
-        let config_manager = Arc::new(ConfigManager::new("test_integration.ini"));
-        let _ = std::fs::remove_file("test_integration.ini"); // ensure clean
+        let config_manager = Arc::new(ConfigManager::new(config_path));
+        let _ = std::fs::remove_file(config_path); // ensure clean
 
         let app_state = Arc::new(AppState {
             sys_monitor,
@@ -343,17 +332,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_index_unconfigured() {
-        let app = test_app();
+        let app = test_app("test_unconfigured.ini");
 
         let request = Request::builder().uri("/").body(Body::empty()).unwrap();
         let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        let _ = std::fs::remove_file("test_unconfigured.ini");
     }
 
     #[tokio::test]
     async fn test_api_info() {
-        let app = test_app();
+        let app = test_app("test_info.ini");
 
         let request = Request::builder()
             .uri("/api/info")
@@ -362,11 +352,12 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        let _ = std::fs::remove_file("test_info.ini");
     }
 
     #[tokio::test]
     async fn test_api_usage() {
-        let app = test_app();
+        let app = test_app("test_usage.ini");
 
         let request = Request::builder()
             .uri("/api/usage")
@@ -375,11 +366,12 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        let _ = std::fs::remove_file("test_usage.ini");
     }
 
     #[tokio::test]
     async fn test_api_uptime() {
-        let app = test_app();
+        let app = test_app("test_uptime.ini");
 
         let request = Request::builder()
             .uri("/api/uptime")
@@ -388,11 +380,12 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        let _ = std::fs::remove_file("test_uptime.ini");
     }
 
     #[tokio::test]
     async fn test_api_setup() {
-        let app = test_app();
+        let app = test_app("test_setup.ini");
 
         let setup_json = r#"{
             "serverName": "TestServer",
@@ -417,12 +410,12 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         // Clean up
-        let _ = std::fs::remove_file("test_integration.ini");
+        let _ = std::fs::remove_file("test_setup.ini");
     }
 
     #[tokio::test]
     async fn test_api_setup_validation_error() {
-        let app = test_app();
+        let app = test_app("test_setup_validation.ini");
 
         let setup_json = r#"{
             "serverName": "",
@@ -450,12 +443,12 @@ mod tests {
         let dto: ResponseDto = serde_json::from_slice(&body).unwrap();
         assert!(dto.message.contains("serverName"));
 
-        let _ = std::fs::remove_file("test_integration.ini");
+        let _ = std::fs::remove_file("test_setup_validation.ini");
     }
 
     #[tokio::test]
     async fn test_api_setup_body_limit() {
-        let app = test_app();
+        let app = test_app("test_setup_limit.ini");
 
         let big_name = "a".repeat(20 * 1024);
         let setup_json = format!(
@@ -482,6 +475,6 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
 
-        let _ = std::fs::remove_file("test_integration.ini");
+        let _ = std::fs::remove_file("test_setup_limit.ini");
     }
 }
