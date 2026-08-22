@@ -1,3 +1,5 @@
+
+
 <h3 align = "center">
 <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/AntonyLeons/ward-rs/rust.yml">
 <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/antonyleons/ward?style=plastic">
@@ -29,7 +31,7 @@ ward-rs is the newer, faster, lighter Ward.
 
 ## Docker
 
-* `docker run --restart unless-stopped -it -d --name ward-rs -p 4000:4000 -e WARD_PORT=4000 -e WARD_THEME=dark --cap-add SYS_PTRACE -v /:/host:ro ward-rs`
+* `docker run --restart unless-stopped -it -d --name ward-rs -p 4000:4000 -e WARD_PORT=4000 -e WARD_THEME=dark --cap-add SYS_PTRACE -v /:/host:ro antonyleons/ward-rs:latest`
 * Go to localhost:4000 in web browser
 
 Also see the example [docker-compose.yml](https://github.com/AntonyLeons/ward-rs/blob/main/docker-compose.yml) file in the root directory.
